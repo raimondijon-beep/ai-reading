@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI & Agentic AI Reading Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b0c0f;
+      --card: #11131a;
+      --muted: #a7b0c0;
+      --text: #e8ecf2;
+      --accent: #4da3ff;
+      --accent-2: #8bd3ff;
+      --border: #1e2230;
+      --tag-bg: #1a2233;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(8px); background: linear-gradient(180deg, rgba(11,12,15,0.9), rgba(11,12,15,0.7)); border-bottom: 1px solid var(--border); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 20px; }
+    h1 { margin: 0; font-size: 20px; letter-spacing: .3px; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .controls { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 14px; }
+    @media (min-width: 800px) { .controls { grid-template-columns: 1.2fr .8fr 1fr; align-items: center; } }
+
+    input[type="search"], select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button, .btn { border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 9px 12px; border-radius: 10px; cursor: pointer; }
+    button:hover, .btn:hover { border-color: var(--accent); }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { font-size: 12px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--tag-bg); color: var(--accent-2); }
+    .tag.active { outline: 2px solid var(--accent); }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    .card { background: linear-gradient(180deg, rgba(26,28,38,.7), rgba(17,19,26,.9)); border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+
+    .card h3 { margin: 0; font-size: 17px; }
+    .card a.title { color: var(--text); text-decoration: none; }
+    .card a.title:hover { color: var(--accent); }
+    .meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+
+    .progress { height: 8px; width: 100%; background: #0f121a; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+    .bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width: 0%; }
+
+    .note-box { width: 100%; min-height: 70px; padding: 8px 10px; background: #0f1218; color: var(--text); border: 1px solid var(--border); border-radius: 10px; }
+
+    .pill { font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); }
+    .pill.pdf { color: #9fe3a7; background: rgba(52,211,153,.08); }
+    .pill.web { color: #fcd266; background: rgba(251,191,36,.08); }
+
+    footer { color: var(--muted); text-align: center; padding: 26px 10px; }
+
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; padding: 2px 6px; background: #12141c; border: 1px solid var(--border); border-radius: 6px; }
+
+    .hidden { display: none !important; }
+  .desc { color: var(--muted); margin: -4px 0 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>AI & Agentic AI Reading Dashboard</h1>
+      <div class="sub">Track progress, filter by theme, keep notes, and export your state. Works offline. Keep this file with the PDFs in the same folder.</div>
+
+      <div class="controls">
+        <input id="q" type="search" placeholder="Search title, tags, or notes… (⌘/Ctrl + K)" />
+        <div class="btn-row">
+          <button id="toggle-theme" title="Toggle dark/light">🌗 Theme</button>
+          <button id="reset-progress" title="Clear completion & notes">🗑 Reset</button>
+          <button id="export-state" title="Download your progress as JSON">⬇️ Export</button>
+          <label class="btn" for="import-file" title="Import a previously exported JSON">⬆️ Import</label>
+          <input id="import-file" type="file" accept="application/json" class="hidden" />
+          <button id="print" title="Print or Save as PDF">🖨 Print</button>
+        </div>
+        <div class="btn-row">
+          <select id="sort">
+            <option value="order">Sort: Reading order</option>
+            <option value="title">Sort: Title A→Z</option>
+            <option value="time">Sort: Estimated time</option>
+            <option value="unread">Sort: Unread first</option>
+          </select>
+          <label class="btn"><input id="only-pdf" type="checkbox" /> PDFs only</label>
+          <label class="btn"><input id="unread-only" type="checkbox" /> Unread only</label>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:10px">
+        <span class="tag" data-tag="Foundations">Foundations</span>
+        <span class="tag" data-tag="LLMs">LLMs</span>
+        <span class="tag" data-tag="Agentic">Agentic</span>
+        <span class="tag" data-tag="Safety">Safety</span>
+        <span class="tag" data-tag="Executive">Executive</span>
+        <span class="tag" data-tag="Web">Web</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="meta" id="summary"></div>
+    <div class="grid" id="list"></div>
+  </main>
+
+  <footer>
+    Pro tip: Use <span class="kbd">⌘/Ctrl</span> + <span class="kbd">K</span> to jump to search. Your progress auto-saves to your browser (localStorage).
+  </footer>
+
+  <script>
+    // ---- Catalog (Reader + Web) ----
+    const ITEMS = [
+      // PDF items → Reader links
+      { id: 'ai-idx', order: 1, title: 'Stanford AI Index 2025', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6e4bcw7t8vr9w20n9chpxy2', minutes: 35, tags: ['Foundations'], desc: 'Data‑rich annual overview of AI research, model capabilities, economics, and policy trends.' },
+      { id: 'nist-rmf', order: 2, title: 'NIST AI Risk Management Framework 1.0', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqfsxxaqk8ag50fekx097', minutes: 25, tags: ['Foundations','Safety'], desc: 'Lifecycle risk framework (Govern, Map, Measure, Manage) with roles and control families.' },
+      { id: 'nist-genai', order: 3, title: 'NIST Generative AI Profile (AI 600-1)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqf7jyxj0cx5tt5qkf2d3', minutes: 20, tags: ['Foundations','Safety'], desc: 'RMF profile for genAI—threats, controls, evaluation guidance for LLMs and other generators.' },
+      { id: 'pair-guide', order: 4, title: 'Google People + AI Guidebook (All Chapters)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqegdxqvsghd7pdh3gqdq', minutes: 30, tags: ['Foundations'], desc: 'Human‑centered patterns for designing AI features: goals, feedback, explanations, and error handling.' },
+      { id: 'b-2024', order: 5, title: 'Berkeley: Building Agentic Systems in an Era of LLMs (2024)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqd05p2fq77046tf2w7xe', minutes: 25, tags: ['Agentic','LLMs'], desc: 'Survey of agent patterns: planning, tool use, memory, reflection, evaluation, and failure modes.' },
+      { id: 'b-2025', order: 6, title: 'Berkeley: System Architecture for Agentic LLMs (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqbxjgjjapjpfnx7vxjm1', minutes: 25, tags: ['Agentic','LLMs'], desc: 'Reference architectures for agentic LLMs—orchestrators, state, simulators, multi‑agent setups, observability.' },
+      { id: 'autogen', order: 7, title: 'AutoGen (Microsoft) — Multi-Agent Framework', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqanbfneqhwr1c2d5m9eh', minutes: 20, tags: ['Agentic','LLMs'], desc: 'Multi‑agent conversation framework where LLM agents collaborate and call tools/programs to solve tasks.' },
+      { id: 'aisi-cases', order: 8, title: 'Safety Cases for Frontier AI (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq8y8cjj9y3wagdjph4pt', minutes: 15, tags: ['Safety'], desc: 'Advocates formal safety cases—structured claims plus evidence—to argue system safety for advanced models.' },
+      { id: 'intl-safety', order: 9, title: 'International AI Safety Report (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq8azmm7mdm969btjaefd', minutes: 20, tags: ['Safety','Foundations'], desc: 'Government survey of AI risks, capabilities, evaluations, and policy approaches across countries.' },
+      { id: 'pwc-agentic', order: 10, title: 'PwC: Agentic AI Executive Playbook (2024)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq7d0ztt500bpknsvtcs5', minutes: 12, tags: ['Executive','Agentic'], desc: 'Executive guide to agentic AI adoption: use cases, value, operating models, and rollout patterns.' },
+      { id: 'slms', order: 11, title: 'SLMs: The Future of Agentic AI (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq6k9vpbdjdf99kskwtjd', minutes: 12, tags: ['Agentic','LLMs'], desc: 'Argues small language models suit on‑device agents for latency, privacy, cost, and specialization.' },
+
+      // Web-only items → Original URLs
+      { id: 'anthropic-pe', order: 12, title: 'Anthropic: Prompt Engineering Overview', type: 'web', href: 'https://docs.anthropic.com/claude/docs/prompt-engineering', minutes: 10, tags: ['LLMs','Web'], desc: 'Concise prompting strategies, iteration, evaluation, and common failure modes.' },
+      { id: 'langgraph', order: 13, title: 'LangGraph: Why & Concepts', type: 'web', href: 'https://langchain-ai.github.io/langgraph/', minutes: 10, tags: ['Agentic','LLMs','Web'], desc: 'Why graphs for agents: stateful workflows with nodes, memory, and human‑in‑the‑loop.' },
+      { id: 'lc-agent', order: 14, title: 'LangChain: Build an Agent Tutorial', type: 'web', href: 'https://python.langchain.com/docs/tutorials/agents', minutes: 10, tags: ['Agentic','LLMs','Web'], desc: 'Hands‑on tutorial to build a tool‑using agent with minimal code and ReAct‑style decisions.' },
+      { id: 'autogen-example', order: 15, title: 'AutoGen: Literature Review Example', type: 'web', href: 'https://microsoft.github.io/autogen/docs/Examples/literature_review', minutes: 8, tags: ['Agentic','Web'], desc: 'End‑to‑end example: agents plan, search, and synthesize a literature review using tools.' },
+    ];
+
+    // ---- State & helpers ----
+    const STATE_KEY = 'ai-reading-dashboard:v2'; // bump key to avoid stale cached state
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    const state = loadState();
+
+    function loadState(){
+      try { return JSON.parse(localStorage.getItem(STATE_KEY)) || { done: {}, notes: {}, theme: 'dark' }; }
+      catch { return { done: {}, notes: {}, theme: 'dark' }; }
+    }
+    function saveState(){ localStorage.setItem(STATE_KEY, JSON.stringify(state)); renderSummary(); }
+
+    function setTheme(mode){
+      state.theme = mode; saveState();
+      if(mode === 'light'){
+        document.documentElement.style.setProperty('--bg', '#f6f7fb');
+        document.documentElement.style.setProperty('--card', '#ffffff');
+        document.documentElement.style.setProperty('--text', '#191c22');
+        document.documentElement.style.setProperty('--muted', '#516175');
+        document.documentElement.style.setProperty('--border', '#e5e9f2');
+        document.documentElement.style.setProperty('--tag-bg', '#eef4ff');
+      } else {
+        document.documentElement.style.removeProperty('--bg');
+        document.documentElement.style.removeProperty('--card');
+        document.documentElement.style.removeProperty('--text');
+        document.documentElement.style.removeProperty('--muted');
+        document.documentElement.style.removeProperty('--border');
+        document.documentElement.style.removeProperty('--tag-bg');
+      }
+    }
+
+    // ---- Render ----
+    function render(){
+      const q = $('#q').value.trim().toLowerCase();
+      const onlyPdf = $('#only-pdf').checked;
+      const unreadOnly = $('#unread-only').checked;
+      const activeTags = $$('.tag.active').map(t => t.dataset.tag);
+
+      let items = [...ITEMS];
+
+      // filter
+      items = items.filter(it => {
+        if (onlyPdf && it.type !== 'pdf') return false;
+        if (unreadOnly && state.done[it.id]) return false;
+        if (activeTags.length && !activeTags.some(tag => it.tags.includes(tag))) return false;
+        if (!q) return true;
+        const hay = (it.title + ' ' + it.tags.join(' ') + ' ' + (state.notes[it.id] || '')).toLowerCase();
+        return hay.includes(q);
+      });
+
+      // sort
+      const sort = $('#sort').value;
+      items.sort((a,b)=>{
+        if (sort === 'title') return a.title.localeCompare(b.title);
+        if (sort === 'time') return a.minutes - b.minutes;
+        if (sort === 'unread') return (state.done[a.id]?1:0) - (state.done[b.id]?1:0) || a.order - b.order;
+        return a.order - b.order; // default order
+      });
+
+      // render cards
+      const list = $('#list');
+      list.innerHTML = '';
+      items.forEach(it => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const openLabel = it.type === 'pdf' ? 'Open in Reader' : 'Open';
+        const pillClass = it.type === 'pdf' ? 'pdf' : 'web';
+        card.innerHTML = `
+          <div class="meta" style="justify-content:space-between">
+            <label style="display:flex; gap:8px; align-items:center">
+              <input type="checkbox" data-id="${it.id}" class="chk" ${state.done[it.id]? 'checked':''} />
+              <span class="pill ${pillClass}">${it.type.toUpperCase()}</span>
+            </label>
+            <div class="meta">
+              <span title="Estimated reading time" class="pill" style="background:#0f121a">⏱ ${it.minutes}m</span>
+              ${it.tags.map(t=>`<span class="tag">${t}</span>`).join('')}
+            </div>
+          </div>
+          <h3><a class="title" target="_blank" rel="noopener" href="${it.href}">${it.title}</a></h3>
+          <p class=\"desc\">${it.desc || ''}</p>
+          <div class=\"progress\" title="Completed?">
+            <div class="bar" style="width:${state.done[it.id]?100:0}%"></div>
+          </div>
+          <div class="btn-row">
+            <a class="btn" target="_blank" rel="noopener" href="${it.href}">${openLabel}</a>
+            <button class="btn mark" data-id="${it.id}">${state.done[it.id] ? 'Mark unread' : 'Mark read'}</button>
+          </div>
+          <textarea class="note-box" data-id="${it.id}" placeholder="Your notes on this item… (auto-saves)">${state.notes[it.id]||''}</textarea>
+        `;
+        list.appendChild(card);
+      });
+
+      // wire up events per render
+      $$('.chk').forEach(el=> el.addEventListener('change', () => {
+        const id = el.dataset.id; state.done[id] = el.checked; saveState(); render();
+      }));
+      $$('.mark').forEach(el=> el.addEventListener('click', () => {
+        const id = el.dataset.id; state.done[id] = !state.done[id]; saveState(); render();
+      }));
+      $$('.note-box').forEach(el=> el.addEventListener('input', debounce(()=> {
+        const id = el.dataset.id; state.notes[id] = el.value; saveState();
+      }, 300)));
+
+      renderSummary();
+    }
+
+    function progressPct(){
+      const total = ITEMS.length; const done = Object.values(state.done).filter(Boolean).length; return Math.round(done/total*100);
+    }
+
+    function renderSummary(){
+      const total = ITEMS.length; const done = Object.values(state.done).filter(Boolean).length; const unread = total - done;
+      const mins = ITEMS.reduce((s,i)=> s + i.minutes, 0);
+      const doneMins = ITEMS.filter(i=>state.done[i.id]).reduce((s,i)=> s + i.minutes, 0);
+      $('#summary').innerHTML = `
+        <span>Items: <b>${total}</b> • Completed: <b style="color:var(--ok)">${done}</b> • Remaining: <b style="color:var(--warn)">${unread}</b></span>
+        <span>Time: <b>${mins}m</b> total • <b>${doneMins}m</b> done • <b>${mins - doneMins}m</b> left</span>
+        <span>Progress: <b>${progressPct()}%</b></span>
+      `;
+    }
+
+    // ---- Utilities ----
+    function debounce(fn, ms){ let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); }; }
+
+    // ---- Global controls ----
+    $('#q').addEventListener('input', debounce(render, 150));
+    $('#sort').addEventListener('change', render);
+    $('#only-pdf').addEventListener('change', render);
+    $('#unread-only').addEventListener('change', render);
+    $$('.tag').forEach(tag => tag.addEventListener('click', () => { tag.classList.toggle('active'); render(); }));
+
+    $('#toggle-theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
+    $('#reset-progress').addEventListener('click', () => { if (!confirm('Reset completion and notes?')) return; state.done = {}; state.notes = {}; saveState(); render(); });
+    $('#export-state').addEventListener('click', () => { const blob = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ai-reading-dashboard-state.json'; a.click(); });
+    $('#import-file').addEventListener('change', async (e) => { const file = e.target.files[0]; if (!file) return; const txt = await file.text(); try { const data = JSON.parse(txt); if (!data.done || !data.notes) throw new Error('Invalid file'); state.done = data.done; state.notes = data.notes; state.theme = data.theme || 'dark'; saveState(); setTheme(state.theme); render(); } catch(err){ alert('Import failed: ' + err.message); } e.target.value = ''; });
+    $('#print').addEventListener('click', () => window.print());
+
+    // Keyboard focus for search
+    document.addEventListener('keydown', (e)=>{ if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#q').focus(); } });
+
+    // Init
+    setTheme(state.theme || 'dark');
+    render();
+  </script>
+</body>
+</html>
