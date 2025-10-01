@@ -205,8 +205,19 @@
       items.forEach(it => {
         const card = document.createElement('div');
         card.className = 'card';
-        const openLabel = it.type === 'pdf' ? 'Open in Reader' : 'Open';
-        const pillClass = it.type === 'pdf' ? 'pdf' : 'web';
+        const isPdf = it.type === 'pdf';
+        const openLabel = isPdf ? 'Open in Reader' : 'Open';
+        const pillClass = isPdf ? 'pdf' : 'web';
+        // Build web/app HREFs
+        let webHref = it.href || '#';
+        if (isPdf && webHref.startsWith('wiseread://')) {
+          webHref = webHref.replace('wiseread://', 'https://read.readwise.io/');
+        }
+        let appHref = '';
+        if (isPdf) {
+          const m = webHref.match(/\/read\/([0-9a-z]+)/i);
+          if (m) appHref = `wiseread://open/private://read/${m[1]}`;
+        }
         card.innerHTML = `
           <div class="meta" style="justify-content:space-between">
             <label style="display:flex; gap:8px; align-items:center">
@@ -218,13 +229,19 @@
               ${it.tags.map(t=>`<span class="tag">${t}</span>`).join('')}
             </div>
           </div>
-          <h3><a class="title" target="_blank" rel="noopener" href="${it.href}">${it.title}</a></h3>
-          <p class=\"desc\">${it.desc || ''}</p>
-          <div class=\"progress\" title="Completed?">
+          <h3>
+            ${isPdf
+              ? `<a class="title pdf-link" data-app="${appHref}" data-web="${webHref}" href="${webHref}">${it.title}</a>`
+              : `<a class="title" target="_blank" rel="noopener" href="${webHref}">${it.title}</a>`}
+          </h3>
+          <p class="desc">${it.desc || ''}</p>
+          <div class="progress" title="Completed?">
             <div class="bar" style="width:${state.done[it.id]?100:0}%"></div>
           </div>
           <div class="btn-row">
-            <a class="btn" target="_blank" rel="noopener" href="${it.href}">${openLabel}</a>
+            ${isPdf
+              ? `<a class="btn pdf-link" data-app="${appHref}" data-web="${webHref}" href="${webHref}">${openLabel}</a>`
+              : `<a class="btn" target="_blank" rel="noopener" href="${webHref}">${openLabel}</a>`}
             <button class="btn mark" data-id="${it.id}">${state.done[it.id] ? 'Mark unread' : 'Mark read'}</button>
           </div>
           <textarea class="note-box" data-id="${it.id}" placeholder="Your notes on this item… (auto-saves)">${state.notes[it.id]||''}</textarea>
@@ -242,6 +259,17 @@
       $$('.note-box').forEach(el=> el.addEventListener('input', debounce(()=> {
         const id = el.dataset.id; state.notes[id] = el.value; saveState();
       }, 300)));
+
+      // Handle PDF deep links: try app first, then web fallback
+      $$('.pdf-link').forEach(a => a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const app = a.dataset.app;
+        const web = a.dataset.web || a.getAttribute('href');
+        if (!app) { window.open(web, '_blank'); return; }
+        let didFallback = false;
+        const t = setTimeout(() => { if (!didFallback) window.open(web, '_blank'); }, 800);
+        try { window.location.href = app; } catch(_) {}
+      }));
 
       renderSummary();
     }
