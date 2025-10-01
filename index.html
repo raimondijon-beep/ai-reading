@@ -206,18 +206,21 @@
         const card = document.createElement('div');
         card.className = 'card';
         const isPdf = it.type === 'pdf';
-        const openLabel = isPdf ? 'Open in Reader' : 'Open';
         const pillClass = isPdf ? 'pdf' : 'web';
-        // Build web/app HREFs
+
+        // Normalize hrefs
         let webHref = it.href || '#';
-        if (isPdf && webHref.startsWith('wiseread://')) {
-          webHref = webHref.replace('wiseread://', 'https://read.readwise.io/');
+        // If data was saved with wiseread:// or readwise://, normalize to the public web URL for parsing/doc id
+        if (/^(wiseread|readwise):\/\//i.test(webHref)) {
+          webHref = webHref.replace(/^(wiseread|readwise):\/\//i, 'https://read.readwise.io/');
         }
-        let appHref = '';
-        if (isPdf) {
-          const m = webHref.match(/\/read\/([0-9a-z]+)/i);
-          if (m) appHref = `wiseread://open/private://read/${m[1]}`;
-        }
+
+        // Extract Reader DOC_ID for deep links (works for both /read/<id> and .../read/<id> patterns)
+        const idMatch = webHref.match(/\/read\/([0-9a-z]+)/i);
+        const docId = idMatch ? idMatch[1] : '';
+
+        const openLabel = isPdf ? 'Open in Reader' : 'Open';
+
         card.innerHTML = `
           <div class="meta" style="justify-content:space-between">
             <label style="display:flex; gap:8px; align-items:center">
@@ -226,13 +229,13 @@
             </label>
             <div class="meta">
               <span title="Estimated reading time" class="pill" style="background:#0f121a">⏱ ${it.minutes}m</span>
-              ${it.tags.map(t=>`<span class="tag">${t}</span>`).join('')}
+              ${it.tags.map(t=>`<span class=\"tag\">${t}</span>`).join('')}
             </div>
           </div>
           <h3>
             ${isPdf
-              ? `<a class="title pdf-link" data-app="${appHref}" data-web="${webHref}" href="${webHref}">${it.title}</a>`
-              : `<a class="title" target="_blank" rel="noopener" href="${webHref}">${it.title}</a>`}
+              ? `<a class=\"title pdf-link\" data-docid=\"${docId}\" data-web=\"${webHref}\" href=\"${webHref}\">${it.title}</a>`
+              : `<a class=\"title\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"${webHref}\">${it.title}</a>`}
           </h3>
           <p class="desc">${it.desc || ''}</p>
           <div class="progress" title="Completed?">
@@ -240,8 +243,8 @@
           </div>
           <div class="btn-row">
             ${isPdf
-              ? `<a class="btn pdf-link" data-app="${appHref}" data-web="${webHref}" href="${webHref}">${openLabel}</a>`
-              : `<a class="btn" target="_blank" rel="noopener" href="${webHref}">${openLabel}</a>`}
+              ? `<a class=\"btn pdf-link\" data-docid=\"${docId}\" data-web=\"${webHref}\" href=\"${webHref}\">${openLabel}</a>`
+              : `<a class=\"btn\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"${webHref}\">${openLabel}</a>`}
             <button class="btn mark" data-id="${it.id}">${state.done[it.id] ? 'Mark unread' : 'Mark read'}</button>
           </div>
           <textarea class="note-box" data-id="${it.id}" placeholder="Your notes on this item… (auto-saves)">${state.notes[it.id]||''}</textarea>
@@ -261,24 +264,46 @@
       }, 300)));
 
       // Handle PDF deep links: try app first, then web fallback
-      // Platform helpers
+      // Platform + deep link helpers
       function isIOS() {
         const ua = navigator.userAgent || navigator.vendor || window.opera;
         const iOS = /iPad|iPhone|iPod/i.test(ua);
-        const macTouch = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1; // iPadOS Safari often reports Mac
+        const macTouch = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1; // iPadOS often reports Mac
         return iOS || macTouch;
+      }
+      function openReaderDeep(docId, webHref) {
+        const cancelers = [];
+        const clearAll = () => cancelers.forEach(c => clearTimeout(c));
+        const onHide = () => { if (document.hidden) clearAll(); };
+        document.addEventListener('visibilitychange', onHide, { once: true });
+
+        if (isIOS()) {
+          // iOS: this deep link reliably jumps to the doc; add web fallback
+          const iosLink = `wiseread://open/private://read/${docId}`;
+          try { window.location.href = iosLink; } catch(_) {}
+          cancelers.push(setTimeout(() => { window.open(webHref, '_blank', 'noopener,noreferrer'); clearAll(); }, 900));
+          return;
+        }
+        // macOS: try several scheme variants; no automatic web fallback
+        const attempts = [
+          // macOS desktop app deep link per your confirmation:
+          `wiseread://read/${docId}`,
+          // Minimal fallbacks:
+          `readwise://read/${docId}`,
+          `wiseread://open/private://read/${docId}`,
+          `readwise://open/private://read/${docId}`,
+        ];
+        attempts.forEach((scheme, i) => {
+          cancelers.push(setTimeout(() => { try { window.location.href = scheme; } catch(_) {} }, i * 350));
+        });
       }
 
       $$('.pdf-link').forEach(a => a.addEventListener('click', (e) => {
         e.preventDefault();
-        const app = a.dataset.app;
+        const docId = a.dataset.docid;
         const web = a.dataset.web || a.getAttribute('href');
-        if (!app) { window.open(web, '_blank', 'noopener,noreferrer'); return; }
-        const doFallback = isIOS(); // iOS gets a web fallback; macOS opens app only
-        if (doFallback) {
-          setTimeout(() => { window.open(web, '_blank', 'noopener,noreferrer'); }, 900);
-        }
-        try { window.location.href = app; } catch(_) {}
+        if (!docId) { window.open(web, '_blank', 'noopener,noreferrer'); return; }
+        openReaderDeep(docId, web);
       }));
 
       renderSummary();
