@@ -1,15 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="robots" content="noindex,nofollow">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data:;
-               script-src 'self' 'unsafe-inline';
-               style-src 'self' 'unsafe-inline';
-               object-src 'none'; base-uri 'none';
-               frame-ancestors 'none'; connect-src 'none'">
   <title>AI & Agentic AI Reading Dashboard</title>
   <style>
     :root {
@@ -132,7 +125,7 @@
       { id: 'nist-genai', order: 3, title: 'NIST Generative AI Profile (AI 600-1)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqf7jyxj0cx5tt5qkf2d3', minutes: 20, tags: ['Foundations','Safety'], desc: 'RMF profile for genAI—threats, controls, evaluation guidance for LLMs and other generators.' },
       { id: 'pair-guide', order: 4, title: 'Google People + AI Guidebook (All Chapters)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqegdxqvsghd7pdh3gqdq', minutes: 30, tags: ['Foundations'], desc: 'Human‑centered patterns for designing AI features: goals, feedback, explanations, and error handling.' },
       { id: 'b-2024', order: 5, title: 'Berkeley: Building Agentic Systems in an Era of LLMs (2024)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqd05p2fq77046tf2w7xe', minutes: 25, tags: ['Agentic','LLMs'], desc: 'Survey of agent patterns: planning, tool use, memory, reflection, evaluation, and failure modes.' },
-      { id: 'b-2025', order: 6, title: 'Berkeley: System Architecture for Agentic LLMs (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqbxjgjjapjpfnx7vxjm1', minutes: 25, tags: ['Agentic','LLMs'], desc: 'Reference architectures for agentic LLMs—orchestrators, state, simulators, multi‑agent setups, and observability.' },
+      { id: 'b-2025', order: 6, title: 'Berkeley: System Architecture for Agentic LLMs (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqbxjgjjapjpfnx7vxjm1', minutes: 25, tags: ['Agentic','LLMs'], desc: 'Reference architectures for agentic LLMs—orchestrators, state, simulators, multi‑agent setups, observability.' },
       { id: 'autogen', order: 7, title: 'AutoGen (Microsoft) — Multi-Agent Framework', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efqanbfneqhwr1c2d5m9eh', minutes: 20, tags: ['Agentic','LLMs'], desc: 'Multi‑agent conversation framework where LLM agents collaborate and call tools/programs to solve tasks.' },
       { id: 'aisi-cases', order: 8, title: 'Safety Cases for Frontier AI (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq8y8cjj9y3wagdjph4pt', minutes: 15, tags: ['Safety'], desc: 'Advocates formal safety cases—structured claims plus evidence—to argue system safety for advanced models.' },
       { id: 'intl-safety', order: 9, title: 'International AI Safety Report (2025)', type: 'pdf', href: 'wiseread://filter/category%3Apdf/split/triage_status/new/read/01k6efq8azmm7mdm969btjaefd', minutes: 20, tags: ['Safety','Foundations'], desc: 'Government survey of AI risks, capabilities, evaluations, and policy approaches across countries.' },
@@ -268,13 +261,23 @@
       }, 300)));
 
       // Handle PDF deep links: try app first, then web fallback
+      // Platform helpers
+      function isIOS() {
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const iOS = /iPad|iPhone|iPod/i.test(ua);
+        const macTouch = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1; // iPadOS Safari often reports Mac
+        return iOS || macTouch;
+      }
+
       $$('.pdf-link').forEach(a => a.addEventListener('click', (e) => {
         e.preventDefault();
         const app = a.dataset.app;
         const web = a.dataset.web || a.getAttribute('href');
-        if (!app) { window.open(web, '_blank'); return; }
-        let didFallback = false;
-        const t = setTimeout(() => { if (!didFallback) window.open(web, '_blank'); }, 800);
+        if (!app) { window.open(web, '_blank', 'noopener,noreferrer'); return; }
+        const doFallback = isIOS(); // iOS gets a web fallback; macOS opens app only
+        if (doFallback) {
+          setTimeout(() => { window.open(web, '_blank', 'noopener,noreferrer'); }, 900);
+        }
         try { window.location.href = app; } catch(_) {}
       }));
 
